@@ -5,3 +5,6 @@ Sneaky Link is here to help across all viewer demographics.
 
 Our idea is to create a Letterboxd Web Scraper to search through and compare movies by genre and general ratings and return a list of movies according to the user's input. Our tool will allow viewers to drastically 
 decrease the time they waste searching for a movie and more time enjoying their perfect movie of the night. 
+
+We orignally worked on making this a data scraper for LinkedIn, but LinkedIn doesn't really allow us to do that without drawbacks. So we switched gear and decided to scrape Letterboxd and make a tool to help movie enjoyers more efiiciently choose a movie that fits their preferences of that moment. 
+
