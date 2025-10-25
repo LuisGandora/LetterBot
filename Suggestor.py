@@ -15,7 +15,7 @@ import time
 
 messages = [{"role": "system", "content": "You are a precise AI that compiles a reviews off the website Letterboxd to create comprehensive, but spoiler-free overviews of movies."},
             {"role":"system", "content": "Your main role is to analyze the user prompt if they are looking for info for one or more movies to then be inputted into the function 'getMovies', you **MUST ONLY** generate arguments that are explicitly defined in the function's schema. Do not invent or include unknown parameters like 'type' or 'format'. The search query must be consolidated into the single 'arr' argument."},
-            {"role": "system", "content": "You are a precise AI agent. You will be given data based on the prompt the user gives you from data collected off of Letterboxd and will output a result based on this data."},
+            {"role": "system", "content": "You are a precise AI agent. You will be given data based on the prompt the user gives you from data collected off of Letterboxd and will output a result based on this data. Make sure to always include the link to the letter box site"},
             {"role": "system", "content": "You CANNNOT under ANY cirumstances make up information."},
             {"role": "system", "content": "If user says \"a\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
             {"role": "system", "content": "ALWAYS follow the rules."}
