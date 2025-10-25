@@ -10,6 +10,8 @@ from selenium.webdriver.support import expected_conditions as EC
 
 #pip install selenium
 #pip install ollama
+#pip install requests
+
 
 #Now for the AI
 import ollama
@@ -28,195 +30,148 @@ from online sources
 thirdPass_instructions = """The user didnt pass enough information, return back the best response you can from the context of the first user prompt after this instruction."""
 #Example commands
 commands = []
-user_name = "divinegeorge019@gmail.com" #default email
-pass_word = "monkeyking19*" # For linkidin
 
 #Run this thingy
-def runSeleniumBot(company, searchfilter): #return list for now no parameters for easy testing
-    #NOTE only for linkidin searching for bots for now
+def runSeleniumBot(movie): #return list for now no parameters for easy testing
     #Options to make it headless
-    firefox_options = Options()
-    firefox_options.add_argument("--headless")
-    #Eventual return list
-    member_data = []
-    #Set up
-    driver = webdriver.Firefox(options=firefox_options)
-    driver.get("https://www.linkedin.com/checkpoint/lg/sign-in-another-account")
-    time.sleep(1.0)
-    
-    # pass_word = "YoKaiWatch34^" #Replace with OS variables later for google
-    UN_field = driver.find_element(By.XPATH, "//input[@name='session_key']")
-    PW_field = driver.find_element(By.XPATH, "//input[@name='session_password']")
-
-
-    UN_field.send_keys(user_name)
-    time.sleep(1.0)
-    PW_field.send_keys(pass_word)
-    time.sleep(1.0)
-
-    login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-    login_button.click()
-
-    
-
-    time.sleep(1.0)
-    try:
-        # search_icon = driver.find_element(By.XPATH, "//button[@aria-label='Search']")
-        # search_icon.click()
-        # time.sleep(1.0)
-        search = driver.find_element(By.XPATH, "//input[@type='text' or @type='search']")
-        search.send_keys(company)
-        search.send_keys(Keys.ENTER)
-        print("Search icon clicked successfully.")
-        time.sleep(5.0)
-        # laPeople = driver.find_element(By.XPATH, '//button[normalize_space()="People"]')
-        # laPeople.click()
-        # time.sleep(3.0)
-        wait = WebDriverWait(driver, 15)
-        comp_filter = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[normalize-space()="Companies"]')))
-        comp_filter.click()
-        print("Clicked 'Companies' filter.")
-        time.sleep(5.0)
-        
-        company_link_xpath = "//a[contains(@href, '/company/microsoft/')]"
-        actual_comp = wait.until(EC.element_to_be_clickable((By.XPATH, company_link_xpath)))
-        actual_comp.click()
-        print(f"Navigated to {company} company page.")
-        time.sleep(5.0)
-        #Later implementation but depends on inputs into this helper command
-        people_tab_xpath = '//a[normalize-space()="People"]'
-        people_tab = wait.until(EC.element_to_be_clickable((By.XPATH, people_tab_xpath)))
-        people_tab.click()
-        print("Navigated to the People/Employees list.")
-        time.sleep(5.0)
-        #Search for specific category like software engineering
-        search_category = driver.find_element(By.CLASS_NAME, "org-people__search-input")
-        search_category.send_keys(searchfilter)
-        search_category.send_keys(Keys.ENTER)
-        time.sleep(3.0)
-
-        
+    run = 0 #Attempt to run twice
+    while run < 2:
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")
+        #Eventual return list
+        member_data = []
+        #Set up
+        driver = webdriver.Firefox(options=firefox_options)
+        driver.install_addon("extensions/uBlock0@raymondhill.net.xpi") #Install ublock for easy access
+        #get Letterbox
+        driver.get("https://letterboxd.com/films/")
+        time.sleep(1.0)
+        #try to parse through ads
         try:
-            # Use an explicit wait to ensure the list has started to populate
-            wait = WebDriverWait(driver, 10)
-            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "scaffold-finite-scroll__content")))
-            
-            parenttoUL = driver.find_element(By.CLASS_NAME, "scaffold-finite-scroll__content")
-            
-            #first conversion to unordered list
+            WebDriverWait(driver, 10).until (
+                EC.visibility_of_element_located((By.ID, "frm-film-search"))
+            )
+            search_movie = driver.find_element(By.ID, "frm-film-search")
+            search_movie.send_keys(movie)    
+            time.sleep(1.0)
+            search_movie.send_keys(Keys.ENTER)
+            #Should directly go into the movie thingy
+            #See if valid review list
             try:
+                WebDriverWait(driver, 10).until (
+                    EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'rating-histogram clear rating-histogram-exploded')]"))
+                )
+                parenttoUL = driver.find_element(By.XPATH, "//div[contains(@class, 'rating-histogram clear rating-histogram-exploded')]")
+                # print(parenttoUL)
                 unordered_list = parenttoUL.find_element(By.TAG_NAME, "ul")
+                # print(unordered_list)
+                list_items = unordered_list.find_elements(By.TAG_NAME, "li")
+                # print(list_items)
+                #Go through list and get info 
+                for index, item in enumerate(list_items):
+                    textFound = item.text
+                    # print(textFound)
+                    member_data.append(textFound)
             except Exception:
-                print("Unordered List Exception| Maybe not found?")
-            #Second conversion gets all the li elements
-            list_items = unordered_list.find_elements(By.TAG_NAME, "li")
-            #Go through list and get info 
-            for index, item in enumerate(list_items):
-                temp = []
-                temp.append(item.text)
-                link_url = ""
-                try:
-                    link_element = item.find_element(By.TAG_NAME)
-                    link_url = link_element.get_attribute("href")
-                except Exception:
-                    link_url = "Possibly no link found"
-                temp.append(link_url)
-                member_data.append(temp)
+                print("Unordered List Exception| Maybe not found?") 
+                driver.close()
+                break
+        except selenium.common.exceptions.TimeoutException:
+            print(f"Timeout: Filter button or company link did not become clickable. Run {run}")
+            run+=1
+            continue
+        except selenium.common.exceptions.NoSuchElementException as e:
+            print(f"Element not found after wait: {e}. Run {run}")
+            run+=1
+            continue
+            
+        break
+    if(driver):
+        driver.close()
+    
 
-
-        except Exception as e:
-            print(f"Error with extraction: {e}")
-        
-    except selenium.common.exceptions.TimeoutException:
-        print("Timeout: Filter button or company link did not become clickable.")
-        return []
-    except selenium.common.exceptions.NoSuchElementException as e:
-        print(f"Element not found after wait: {e}")
-        return []
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return []
-    driver.quit()
     return member_data
 
+   
 #Helper functions for commands
-def getUserInterest(One='LinkedIn', Two='Marketing'):
-    commands.append(One) #First instruction (Company)
-    commands.append(Two) #Second Intruction (By people category for a company)
+def getUserInterest(One='Batman'):
+    commands.append(One) #First instruction (Movie)
 
 
 
 def main():
-    #schemas
-    available_tools = {
-        "getUserInterest": getUserInterest,
-    }
+    s = runSeleniumBot("Batman")
+    print(s)
+    # OLD COde
+    # available_tools = {
+    #     "getUserInterest": getUserInterest,
+    # }
 
-    search_tool_schema = {
-        "type" : "function",
-        "function":
-        {
-            "name" : "getUserInterest",
-            "description" : "This function is meant to get the data for a function called runSeleniumBot that takes two strings, company name",
-            "parameters" : {
-                "type": "object",
-                "properties": {
-                    "One": {
-                        "type": "string",
-                        "description": "This is where the Company name that the user mentioned gets inputted into the AI model"
-                    },
-                    "Two": {
-                        "type":"string",
-                        "description" : "This is where the category of people that the user is looking for should enter"
-                    }
-                },
-                "required": ["One", "Two"]
-            },
-        }
-    }  
-    print("Sign in with your linkedin email: ")
-    user_name = input()
-    print("Sign in with your password: ")
-    pass_word = input()
+    # search_tool_schema = {
+    #     "type" : "function",
+    #     "function":
+    #     {
+    #         "name" : "getUserInterest",
+    #         "description" : "This function is meant to get the data for a function called runSeleniumBot that takes two strings, company name",
+    #         "parameters" : {
+    #             "type": "object",
+    #             "properties": {
+    #                 "One": {
+    #                     "type": "string",
+    #                     "description": "This is where the Company name that the user mentioned gets inputted into the AI model"
+    #                 },
+    #                 "Two": {
+    #                     "type":"string",
+    #                     "description" : "This is where the category of people that the user is looking for should enter"
+    #                 }
+    #             },
+    #             "required": ["One", "Two"]
+    #         },
+    #     }
+    # }  
+    # print("Sign in with your linkedin email: ")
+    # user_name = input()
+    # print("Sign in with your password: ")
+    # pass_word = input()
 
-    while True:
-        #example_message = "I want to know more about Microsoft and the people that work there. Can you give me a list of top 10 software engineers people working at the company"
-        print("Type your message here")
-        example_message = input()
-        #messageging
-        message1 = [{"role":"system", "content" : firstPass_instructions}, {"role" :"user", "content" : example_message}]
-        response = ollama.chat(
-            model='mistral:latest', 
-            messages=message1,
-            options={'keep_alive': '0m'},
-            tools = [search_tool_schema]
-        )
-        print(response['message']['content'])
-        if response['message'].get('tool_calls'):
-            tool_call = response['message']['tool_calls'][0]
-            print(tool_call)
-            function_name = tool_call['function']['name']
-            function_args = tool_call['function']['arguments']
-            print(f"Model attempting to call: {function_name} with args: {function_args}")
-            function_to_call = available_tools[function_name]
-            function_to_call(**function_args)
-            print(commands)
-            res = runSeleniumBot(commands[0], commands[1])
-            result = "| ".join(str(item) for item in res)
-            print(result)
-            message2 = [{"role":"system", "content" : secondPass_instructions}, {"role" :"user", "content" : example_message + result}]
-            final_response = ollama.chat(
-                model='mistral:latest', 
-                messages=message2,
-            )
-            print(final_response['message']['content'])
-        else:
-            print("You gon die")
-            message2 = [{"role":"system", "content" : thirdPass_instructions}, {"role" :"user", "content" : example_message }]
-            final_response = ollama.chat(
-                model='mistral:latest', 
-                messages=message2,
-            )
-            print(final_response['message']['content'])
+    # while True:
+    #     #example_message = "I want to know more about Microsoft and the people that work there. Can you give me a list of top 10 software engineers people working at the company"
+    #     print("Type your message here")
+    #     example_message = input()
+    #     #messageging
+    #     message1 = [{"role":"system", "content" : firstPass_instructions}, {"role" :"user", "content" : example_message}]
+    #     response = ollama.chat(
+    #         model='mistral:latest', 
+    #         messages=message1,
+    #         options={'keep_alive': '0m'},
+    #         tools = [search_tool_schema]
+    #     )
+    #     print(response['message']['content'])
+    #     if response['message'].get('tool_calls'):
+    #         tool_call = response['message']['tool_calls'][0]
+    #         print(tool_call)
+    #         function_name = tool_call['function']['name']
+    #         function_args = tool_call['function']['arguments']
+    #         print(f"Model attempting to call: {function_name} with args: {function_args}")
+    #         function_to_call = available_tools[function_name]
+    #         function_to_call(**function_args)
+    #         print(commands)
+    #         res = runSeleniumBot(commands[0], commands[1])
+    #         result = "| ".join(str(item) for item in res)
+    #         print(result)
+    #         message2 = [{"role":"system", "content" : secondPass_instructions}, {"role" :"user", "content" : example_message + result}]
+    #         final_response = ollama.chat(
+    #             model='mistral:latest', 
+    #             messages=message2,
+    #         )
+    #         print(final_response['message']['content'])
+    #     else:
+    #         print("You gon die")
+    #         message2 = [{"role":"system", "content" : thirdPass_instructions}, {"role" :"user", "content" : example_message }]
+    #         final_response = ollama.chat(
+    #             model='mistral:latest', 
+    #             messages=message2,
+    #         )
+    #         print(final_response['message']['content'])
 if __name__ == "__main__":
     main()
