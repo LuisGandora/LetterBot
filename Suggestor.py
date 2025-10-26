@@ -177,7 +177,6 @@ def letterboxd_bot(prompt):
     messages.append({"role": "user", "content": prompt})
 
     response = ollama.chat(model=model_name, messages=messages, tools=[search_tool_schema])
-    print(response)
     # print(result)
     # response = result.message.content
     # Step 2: Check for function calls (preferred way)
