@@ -19,8 +19,7 @@ messages = [{"role": "system", "content": "You are a precise AI that compiles a 
             {"role": "system", "content": "You CANNNOT under ANY cirumstances make up information."},
             {"role": "system", "content": "If user says \"a\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
             {"role": "system", "content": "ALWAYS follow the rules."}
-            ]
-
+]
 #For the selenium bot
 commands = []
 botMode = 0
@@ -128,6 +127,7 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                     member_data.append("|||")
                     driver.close()
                     continue
+                
                 driver.close()
                 break
     return member_data
@@ -196,6 +196,7 @@ def main():
 
     while True:
         prompt = input("Ask a question (input exit to quit): ")
+        print(f"Prompt: {prompt}")
         if prompt == "exit":
             exit(0)
         else:
