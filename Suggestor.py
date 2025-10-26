@@ -18,7 +18,9 @@ messages = [{"role": "system", "content": "You are a precise AI that compiles a 
             {"role": "system", "content": "You are a precise AI agent. You will be given data based on the prompt the user gives you from data collected off of Letterboxd and will output a result based on this data. Make sure to always include the link to the letter box site"},
             {"role": "system", "content": "You CANNNOT under ANY cirumstances make up information."},
             {"role": "system", "content": "If user says \"a\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
-            {"role": "system", "content": "ALWAYS follow the rules."}
+            {"role": "system", "content": "You must call the function 'getMovies' whenever the user asks about movies. You must NOT generate text describing movies yourself. You must ONLY generate arguments that match the schema. Never invent data."},
+            {"role": "system", "content": "ALWAYS follow the rules."},
+            #{"role":"system", "content":"Example: user asks 'Find data for The Godfather', you MUST output: {\"function_call\": {\"name\": \"getMovies\", \"arguments\": {\"arr\": [\"The Godfather\"]}}}"}
 ]
 #For the selenium bot
 commands = []
@@ -32,6 +34,7 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
     member_data = []
     if mode == 0:
         for i in movieOptions:
+            print(f"Scraping {i}")
             run = 0 #Attempt to run twice
             while run < 2:
                 firefox_options = Options()
@@ -43,7 +46,8 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                 #get Letterbox
                 driver.get("https://letterboxd.com/films/")
                 time.sleep(1.0)
-                member_data.append(i)
+                movie_data = {"title": i,}
+
                 #try to parse through ads
 
                 try:
@@ -62,8 +66,9 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                             EC.visibility_of_element_located((By.CSS_SELECTOR, "span.releasedate"))
                         )
                         year_itself =  release.find_element(By.TAG_NAME, "a")
+                        movie_data["year"] = year_itself.text
                         # print(year_itself)
-                        member_data.append(year_itself.text)
+
                     except Exception:
                         print("Year couldnt be found | Maybe not found or movie not out")
                     #Getting director
@@ -71,7 +76,7 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                         director = WebDriverWait(driver, 3).until(
                             EC.visibility_of_element_located((By.CSS_SELECTOR, "a.contributor"))
                         )
-                        member_data.append(director.get_attribute("href"))
+                        movie_data["director"] = director.get_attribute("href")
                     except Exception:
                         print("Director couldnt be found | Maybe not found or movie not out")
                     #getting metrics
@@ -81,8 +86,10 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                         )
                         metrics = driver.find_element(By.XPATH, "//div[contains(@class, 'production-statistic-list')]")
                         metricList = metrics.find_elements(By.CLASS_NAME, "production-statistic")
+                        metrics_List = []
                         for index,items in enumerate(metricList):
-                            member_data.append(items.get_attribute("aria-label"))
+                            metrics_List.append(items.get_attribute("aria-label"))
+                        movie_data["metrics"] = metrics_List
                     except Exception:
                         print("Metrics couldnt be found | Maybe not found or movie not out")
                     #getting list of ratings per star
@@ -96,22 +103,24 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                         # print(unordered_list)
                         list_items = unordered_list.find_elements(By.TAG_NAME, "li")
                         # print(list_items)
-                        #Go through list and get info 
+                        #Go through list and get info
+                        rating_list = []
                         for index, item in enumerate(list_items):
-                            textFound = item.text
+                            rating_list.append(item.text)
                             # print(textFound)
-                            member_data.append(textFound)
+                        movie_data["ratings"] = rating_list
+
+
                     except Exception:
                         print("Unordered List Exception| Maybe not found or movie not out?") 
                     try:
                         duration = WebDriverWait(driver, 3).until(
                             EC.visibility_of_element_located((By.XPATH, '//p[contains(@class, "text-link text-footer")]'))
                         )
-                        member_data.append(duration.text)
+                        movie_data["duration"] = duration.text
                     except Exception:
                         print("No duration? | Maybe not found or movie not out?") 
-                    member_data.append(driver.current_url)
-                    member_data.append("|||")
+                    movie_data["link"] = driver.current_url
                         
                 except selenium.common.exceptions.TimeoutException:
                     print(f"Timeout: Search button did not become clickable. Run {run}")
@@ -127,13 +136,15 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                     member_data.append("|||")
                     driver.close()
                     continue
-                
+
+                member_data.append(movie_data)
                 driver.close()
                 break
     return member_data
 
 #helper function
 def getMovies(arr):
+    global commands, botMode
     commands = arr
     botMode = 0
 
@@ -169,26 +180,57 @@ def letterboxd_bot(prompt):
     print(response)
     # print(result)
     # response = result.message.content
-    if response['message'].get('tool_calls'): #calls tool call
-        tool_call = response['message']['tool_calls'][0]
-        function_name = tool_call['function']['name']
-        function_args = tool_call['function']['arguments']
-        print(f"Model attempting to call: {function_name} with args: {function_args}")
-        function_to_call = available_tools[function_name]
-        function_to_call(**function_args)
-        res = runSeleniumBot(commands, botMode)
-        result = "| ".join(str(item) for item in res)
-        messages.append({"role": "user", "content": prompt+result})
-        response = ollama.chat(
-            model='mistral:latest', 
-            messages=messages,
-        )
-        messages.append({"role": "assistant", "content": response['message']['content']})
-        print(response['message']['content'])
-    else:
-        messages.append({"role": "assistant", "content": response['message']['content']})
-        print(response['message']['content'])
+    # Step 2: Check for function calls (preferred way)
+    import json
 
+    # Step 1: Try preferred tool_calls
+    tool_calls = response['message'].get('tool_calls')
+
+    # Step 2: Fallback: parse JSON if no tool_calls
+    if not tool_calls:
+        try:
+            parsed = json.loads(response['message']['content'])
+            if isinstance(parsed, list) and "name" in parsed[0]:
+                tool_calls = parsed
+        except Exception:
+            tool_calls = None
+
+    # Step 3: Run Selenium bot if we have a tool call
+    if tool_calls:
+        for tool_call in tool_calls:
+            # The structure might differ depending on Ollama response
+            if 'function' in tool_call:
+                # proper tool_call object
+                function_name = tool_call['function']['name']
+                function_args = tool_call['function']['arguments']
+            else:
+                # parsed JSON
+                function_name = tool_call['name']
+                function_args = tool_call['arguments']
+
+            print(f"Calling {function_name} with args: {function_args}")
+            available_tools[function_name](**function_args)
+
+            # Run Selenium bot
+            movie_names = function_args.get('arr', [])
+            if not movie_names:
+                print("No movie names found in function call. Exiting.")
+                return
+
+            res = runSeleniumBot(movie_names, 0)
+
+            # Format results for model
+            result_text = "| ".join(str(item) for item in res)
+            additionallogic = "The following is the data for the original prompt, answer it with this following context: "
+            messages.append({"role": "user", "content": prompt + additionallogic + result_text})
+
+            response2 = ollama.chat(model=model_name, messages=messages)
+            messages.append({"role": "assistant", "content": response2['message']['content']})
+            print(response2['message']['content'])
+    else:
+        # fallback if no tool call
+        model_text = response['message'].get('content', '')
+        print("No function call detected. Model output:", model_text)
     
 
 
