@@ -9,4 +9,4 @@ decrease the time they waste searching for a movie and more time enjoying their 
 We orignally worked on making this a data scraper for LinkedIn, but LinkedIn doesn't really allow us to do that without drawbacks. So we switched gear and decided to scrape Letterboxd and make a tool to help movie enjoyers more efiiciently choose a movie that fits their preferences of that moment. 
 
 Ways to host Jupyter noteboook:
- -  mybinder.org
+ -  mybinder.org URL: https://mybinder.org/v2/gh/LuisGandora/LetterBot/aa76c09b608a7413da547669794e4935dbbf1f6d?urlpath=lab%2Ftree%2FweStart.ipynb
