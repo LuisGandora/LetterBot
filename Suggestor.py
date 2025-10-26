@@ -121,6 +121,15 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                     except Exception:
                         print("No duration? | Maybe not found or movie not out?") 
                     movie_data["link"] = driver.current_url
+                     #description FIX THEEXCEPTIONS LATER
+                    try:
+                        daDesp = WebDriverWait(driver, 3).until(
+                            EC.visibility_of_element_located((By.XPATH, '//div[contains(@class, "truncate")]'))
+                        )
+                        movie_data["description"] = daDesp.find_element(By.TAG_NAME, "p").text
+                    except:
+                        print("No description | Maybe not found or movie not out?") 
+                        
                         
                 except selenium.common.exceptions.TimeoutException:
                     print(f"Timeout: Search button did not become clickable. Run {run}")
