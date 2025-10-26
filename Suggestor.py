@@ -17,10 +17,10 @@ messages = [{"role": "system", "content": "You are a precise AI that compiles a 
             {"role":"system", "content": "Your main role is to analyze the user prompt if they are looking for info for one or more movies to then be inputted into the function 'getMovies', you **MUST ONLY** generate arguments that are explicitly defined in the function's schema. Do not invent or include unknown parameters like 'type' or 'format'. The search query must be consolidated into the single 'arr' argument."},
             {"role": "system", "content": "You are a precise AI agent. You will be given data based on the prompt the user gives you from data collected off of Letterboxd and will output a result based on this data. Make sure to always include the link to the letter box site"},
             {"role": "system", "content": "You CANNNOT under ANY cirumstances make up information."},
-            {"role": "system", "content": "If user says \"a\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
+            {"role": "system", "content": "If user says \"a similar\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
             {"role": "system", "content": "You must call the function 'getMovies' whenever the user asks about movies. You must NOT generate text describing movies yourself. You must ONLY generate arguments that match the schema. Never invent data."},
-            {"role": "system", "content": "ALWAYS follow the rules."},
-            #{"role":"system", "content":"Example: user asks 'Find data for The Godfather', you MUST output: {\"function_call\": {\"name\": \"getMovies\", \"arguments\": {\"arr\": [\"The Godfather\"]}}}"}
+            {"role":"system", "content": "If the user asks for a similar movie, you must return only **one real movie title** that already exists on Letterboxd. Do not include placeholder words like 'similar', 'like', or 'related'."},
+            {"role": "system", "content": "ALWAYS follow the rules."}
 ]
 #For the selenium bot
 commands = []
@@ -181,18 +181,32 @@ def letterboxd_bot(prompt):
     # response = result.message.content
     # Step 2: Check for function calls (preferred way)
     import json
+    import re
 
-    # Step 1: Try preferred tool_calls
+    model_text = response['message'].get('content', '')
+
     tool_calls = response['message'].get('tool_calls')
 
-    # Step 2: Fallback: parse JSON if no tool_calls
+    # If no tool_calls, check for plain JSON list
     if not tool_calls:
         try:
-            parsed = json.loads(response['message']['content'])
-            if isinstance(parsed, list) and "name" in parsed[0]:
-                tool_calls = parsed
+            parsed_list = json.loads(model_text)
+            if isinstance(parsed_list, list):
+                tool_calls = [{"name": "getMovies", "arguments": {"arr": parsed_list}}]
         except Exception:
-            tool_calls = None
+            # Try regex fallback
+            match = re.search(r'\[.*\]', model_text)
+            if match:
+                try:
+                    parsed_list = json.loads(match.group())
+                    if isinstance(parsed_list, list):
+                        tool_calls = [{"name": "getMovies", "arguments": {"arr": parsed_list}}]
+                except Exception:
+                    pass
+
+    if not tool_calls:
+        print("No function call detected. Model output:", model_text)
+        return
 
     # Step 3: Run Selenium bot if we have a tool call
     if tool_calls:
@@ -219,17 +233,33 @@ def letterboxd_bot(prompt):
             res = runSeleniumBot(movie_names, 0)
 
             # Format results for model
-            result_text = "| ".join(str(item) for item in res)
+            pretty_res = json.dumps(res, indent=4)
             additionallogic = "The following is the data for the original prompt, answer it with this following context: "
-            messages.append({"role": "user", "content": prompt + additionallogic + result_text})
+            messages.append({"role": "user", "content": prompt + additionallogic + pretty_res})
 
+            summary_prompt = (
+                "Here is structured data from Letterboxd for your original query. "
+                "Provide a clear, spoiler-free summary including title, year, director, "
+                "metrics, ratings, duration, and Letterboxd link.\n\n"
+                f"{pretty_res}"
+            )
+
+            messages.append({
+                "role": "user",
+                "content": summary_prompt
+            })
             response2 = ollama.chat(model=model_name, messages=messages)
-            messages.append({"role": "assistant", "content": response2['message']['content']})
+            messages.append({
+                "role": "assistant",
+                "content": response2['message']['content']
+            })
             print(response2['message']['content'])
     else:
         # fallback if no tool call
         model_text = response['message'].get('content', '')
         print("No function call detected. Model output:", model_text)
+
+
     
 
 
