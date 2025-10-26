@@ -31,18 +31,19 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
     #Eventual return list
     member_data = []
     if mode == 0:
+        firefox_options = Options()
+        firefox_options.add_argument("--headless")
+        
+        #Set up
+        driver = webdriver.Firefox(options=firefox_options) #options=firefox_options
+        driver.install_addon("extensions/uBlock0@raymondhill.net.xpi") #Install ublock for easy access
         for i in movieOptions:
             run = 0 #Attempt to run twice
             while run < 2:
-                firefox_options = Options()
-                firefox_options.add_argument("--headless")
-                
-                #Set up
-                driver = webdriver.Firefox(options=firefox_options)
-                driver.install_addon("extensions/uBlock0@raymondhill.net.xpi") #Install ublock for easy access
+               
                 #get Letterbox
                 driver.get("https://letterboxd.com/films/")
-                time.sleep(1.0)
+                time.sleep(3.0)
                 member_data.append(i)
                 #try to parse through ads
 
@@ -118,18 +119,15 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                     run+=1
                     member_data.append("Search button did not become clickable. User input may be too complex or not clear enough")
                     member_data.append("|||")
-                    driver.close()
                     continue
                 except selenium.common.exceptions.NoSuchElementException as e:
                     print(f"Search Button not found after wait: {e}. Run {run}")
                     run+=1
                     member_data.append(f"Search Button not found after wait: {e}. User input may be too complex or not clear enough")
                     member_data.append("|||")
-                    driver.close()
                     continue
-                
-                driver.close()
                 break
+        driver.close()
     return member_data
 
 #helper function
@@ -194,13 +192,15 @@ def letterboxd_bot(prompt):
 
 def main():
 
-    while True:
-        prompt = input("Ask a question (input exit to quit): ")
-        print(f"Prompt: {prompt}")
-        if prompt == "exit":
-            exit(0)
-        else:
-            letterboxd_bot(prompt)
+    # while True:
+    #     prompt = input("Ask a question (input exit to quit): ")
+    #     print(f"Prompt: {prompt}")
+    #     if prompt == "exit":
+    #         exit(0)
+    #     else:
+    #         letterboxd_bot(prompt)
+    s = runSeleniumBot(["Mario", "Luigi"], 0)
+    print(s)
 
 
 
