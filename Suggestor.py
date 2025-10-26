@@ -39,7 +39,7 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
             while run < 2:
                 firefox_options = Options()
                 firefox_options.add_argument("--headless")
-                
+
                 #Set up
                 driver = webdriver.Firefox(options=firefox_options)
                 driver.install_addon("extensions/uBlock0@raymondhill.net.xpi") #Install ublock for easy access
@@ -55,7 +55,7 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                         EC.visibility_of_element_located((By.ID, "frm-film-search"))
                     )
                     search_movie = driver.find_element(By.ID, "frm-film-search")
-                    search_movie.send_keys(i)    
+                    search_movie.send_keys(i)
                     time.sleep(1.0)
                     search_movie.send_keys(Keys.ENTER)
                     time.sleep(1.0)
@@ -112,14 +112,14 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
 
 
                     except Exception:
-                        print("Unordered List Exception| Maybe not found or movie not out?") 
+                        print("Unordered List Exception| Maybe not found or movie not out?")
                     try:
                         duration = WebDriverWait(driver, 3).until(
                             EC.visibility_of_element_located((By.XPATH, '//p[contains(@class, "text-link text-footer")]'))
                         )
                         movie_data["duration"] = duration.text
                     except Exception:
-                        print("No duration? | Maybe not found or movie not out?") 
+                        print("No duration? | Maybe not found or movie not out?")
                     movie_data["link"] = driver.current_url
                      #description FIX THEEXCEPTIONS LATER
                     try:
@@ -128,9 +128,9 @@ def runSeleniumBot(movieOptions, mode): #return list for where each movie if fou
                         )
                         movie_data["description"] = daDesp.find_element(By.TAG_NAME, "p").text
                     except:
-                        print("No description | Maybe not found or movie not out?") 
-                        
-                        
+                        print("No description | Maybe not found or movie not out?")
+
+
                 except selenium.common.exceptions.TimeoutException:
                     print(f"Timeout: Search button did not become clickable. Run {run}")
                     run+=1
@@ -178,7 +178,7 @@ search_tool_schema = {
             "required": ["arr"]
         },
     }
-}  
+}
 
 def letterboxd_bot(prompt):
     model_name = 'mistral:7b'
@@ -186,8 +186,6 @@ def letterboxd_bot(prompt):
     messages.append({"role": "user", "content": prompt})
 
     response = ollama.chat(model=model_name, messages=messages, tools=[search_tool_schema])
-    # print(result)
-    # response = result.message.content
     # Step 2: Check for function calls (preferred way)
     import json
     import re
@@ -198,24 +196,24 @@ def letterboxd_bot(prompt):
 
     # If no tool_calls, check for plain JSON list
     if not tool_calls:
-        try:
-            parsed_list = json.loads(model_text)
-            if isinstance(parsed_list, list):
-                tool_calls = [{"name": "getMovies", "arguments": {"arr": parsed_list}}]
-        except Exception:
-            # Try regex fallback
-            match = re.search(r'\[.*\]', model_text)
-            if match:
-                try:
-                    parsed_list = json.loads(match.group())
-                    if isinstance(parsed_list, list):
-                        tool_calls = [{"name": "getMovies", "arguments": {"arr": parsed_list}}]
-                except Exception:
-                    pass
-
-    if not tool_calls:
-        print("No function call detected. Model output:", model_text)
-        return
+        import re
+        # Check for JSON array in text
+        match = re.search(r'\[.*\]', model_text, re.DOTALL)
+        if match:
+            try:
+                parsed_json = json.loads(match.group())
+                # If it's a list of dicts with titles, extract movie titles
+                if isinstance(parsed_json, list) and all(isinstance(x, dict) and "title" in x for x in parsed_json):
+                    movie_titles = [x['title'] for x in parsed_json]
+                    tool_calls = [{"name": "getMovies", "arguments": {"arr": movie_titles}}]
+                # If it's a plain list of movie names
+                elif isinstance(parsed_json, list):
+                    tool_calls = [{"name": "getMovies", "arguments": {"arr": parsed_json}}]
+            except Exception:
+                pass
+        # Ignore placeholder if no usable JSON
+        elif model_text.strip() == "[TOOL_CALLS]":
+            print("No usable tool call found, skipping scraping.")
 
     # Step 3: Run Selenium bot if we have a tool call
     if tool_calls:
@@ -235,6 +233,9 @@ def letterboxd_bot(prompt):
 
             # Run Selenium bot
             movie_names = function_args.get('arr', [])
+            if movie_names and isinstance(movie_names[0], dict) and 'arguments' in movie_names[0]:
+                movie_names = movie_names[0]['arguments'].get('arr', [])
+
             if not movie_names:
                 print("No movie names found in function call. Exiting.")
                 return
@@ -269,7 +270,7 @@ def letterboxd_bot(prompt):
         print("No function call detected. Model output:", model_text)
 
 
-    
+
 
 
 def main():
