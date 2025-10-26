@@ -20,7 +20,7 @@ messages = [{"role": "system", "content": "You are a precise AI that compiles a 
             {"role": "system", "content": "If user says \"a similar\" movie, only list one. NEVER list more than 10 unless explicitly told to do so."},
             {"role": "system", "content": "You must call the function 'getMovies' whenever the user asks about movies. You must NOT generate text describing movies yourself. You must ONLY generate arguments that match the schema. Never invent data."},
             {"role":"system", "content": "If the user asks for a similar movie, you must return only **one real movie title** that already exists on Letterboxd. Do not include placeholder words like 'similar', 'like', or 'related'."},
-            {"role": "system", "content": "ALWAYS follow the rules."}
+            {"role": "system", "content": "ALWAYS followG the rules."}
 ]
 #For the selenium bot
 commands = []
@@ -245,14 +245,14 @@ def letterboxd_bot(prompt):
             # Format results for model
             pretty_res = json.dumps(res, indent=4)
             additionallogic = "The following is the data for the original prompt, answer it with this following context: "
-            messages.append({"role": "user", "content": prompt + additionallogic + pretty_res})
-
             summary_prompt = (
                 "Here is structured data from Letterboxd for your original query. "
                 "Provide a clear, spoiler-free summary including title, year, director, "
-                "metrics, ratings, duration, and Letterboxd link.\n\n"
+                "metrics, ratings (use the star and distribution), duration, and Letterboxd link. (MUST USE DATA THAT WAS SCRAPED)\n\n"
                 f"{pretty_res}"
             )
+
+            messages.append({"role": "user", "content": prompt + additionallogic + summary_prompt})
 
             messages.append({
                 "role": "user",
